@@ -1,1 +1,44 @@
+trigger:
+- main  # or specify the branch you want to trigger the build
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: BuildAndDeploy
+  displayName: 'Build and Deploy'
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'  # Specify your Python version
+
+  - script: |
+      source myenv/bin/activate  # Adjust the activation command based on your environment structure
+      pip install -r requirements.txt
+    displayName: 'Install dependencies'
+
+  - script: |
+      python -m pytest  # or any other testing commands
+    displayName: 'Run tests'
+
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+      replaceExistingArchive: true
+    displayName: 'Archive files'
+
+  - publish: $(Build.ArtifactStagingDirectory)/app.zip
+    artifact: drop
+    displayName: 'Publish artifact'
+
+  - task: AzureStaticWebApp@0
+    inputs:
+      app_location: '$(Build.ArtifactStagingDirectory)/app.zip'
+      api_location: ''  # Optional: Specify if you have an API folder
+      output_location: '$(Build.ArtifactStagingDirectory)/output'
+      azure_static_web_apps_api_token: $(deployment_token)
+    displayName: 'Deploy to Azure Static Web App'
 
