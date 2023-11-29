@@ -1,5 +1,5 @@
 trigger:
-- main
+- main  # or specify the branch you want to trigger the build
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -8,17 +8,28 @@ jobs:
 - job: BuildAndDeploy
   displayName: 'Build and Deploy'
   steps:
-  - task: CopyFiles@2
+  - task: UsePythonVersion@0
     inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: '**'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: 'Copy files to artifact directory'
+      versionSpec: '3.x'  # Specify your Python version
 
-  - task: PublishBuildArtifacts@1
-    inputs:
-      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      ArtifactName: 'static-web-app-artifact'
-      publishLocation: 'Container'
+  - script: |
+      python -m venv env
+      source env/bin/activate
+      pip install -r requirements.txt
+    displayName: 'Install dependencies'
+
+  - script: |
+      python -m pytest  # or any other testing commands
+    displayName: 'Run tests'
+
+  - publish: $(System.DefaultWorkingDirectory)
+    artifact: drop
     displayName: 'Publish artifact'
 
+  - task: AzureStaticWebApp@0
+    inputs:
+      app_location: '$(System.DefaultWorkingDirectory)'
+      api_location: ''  # Optional: Specify if you have an API folder
+      output_location: '$(Build.ArtifactStagingDirectory)/output'
+      azure_static_web_apps_api_token: $(deployment_token)
+    displayName: 'Deploy to Azure Static Web App'
